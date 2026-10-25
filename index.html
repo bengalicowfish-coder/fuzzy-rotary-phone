@@ -238,7 +238,7 @@
                 </div>
             </div>
 
-            <!-- 30-SECOND ROTATING LIVE WINNERS FEED (30 Names) -->
+            <!-- LIVE WINNERS FEED -->
             <div class="glass-card-3d p-6 rounded-3xl space-y-4 flex flex-col h-[520px]">
                 <div class="border-b border-slate-700 pb-3 flex justify-between items-center shrink-0">
                     <h3 class="font-bold text-white text-sm flex items-center gap-2">
@@ -301,7 +301,7 @@
         </div>
     </div>
 
-    <!-- AUTH MODAL WITH IN-APP 6-DIGIT CODE GENERATOR -->
+    <!-- AUTH MODAL -->
     <div id="auth-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-4 hidden">
         <div class="glass-card-3d bg-slate-900 rounded-3xl max-w-md w-full p-6 space-y-5 border-2 border-cyan-400/60 shadow-2xl">
             <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -330,7 +330,6 @@
                     <input type="password" id="auth_pass" required placeholder="পাসওয়ার্ড দিন" class="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none">
                 </div>
 
-                <!-- In-App 6-Digit Code Verification Box -->
                 <div id="inapp-code-box" class="hidden bg-slate-950 p-4 rounded-xl border border-emerald-500/50 space-y-3">
                     <p class="text-[11px] text-emerald-400 font-bold text-center"><i class="fa-solid fa-shield-halved"></i> সফটওয়্যার থেকে অটো-জেনারেটেড ৬-ডিজিট সিকিউরিটি কোড:</p>
                     <div class="flex items-center justify-center bg-slate-900 py-3 rounded-xl border border-amber-400/60">
@@ -345,7 +344,7 @@
         </div>
     </div>
 
-    <!-- LOAN APPLICATION MODAL WITH WHATSAPP WHISPER & 2-MIN TIMER -->
+    <!-- LOAN APPLICATION MODAL -->
     <div id="loan-apply-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-2 sm:p-6 hidden">
         <div class="glass-card-3d bg-slate-900/95 rounded-3xl w-full h-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl border-2 border-amber-400/60 overflow-hidden">
             <div class="p-5 bg-slate-950/90 text-white flex justify-between items-center border-b border-slate-800 shrink-0">
@@ -356,7 +355,6 @@
             </div>
             
             <div class="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-slate-900/90">
-                <!-- EMI CALCULATOR WIDGET INSIDE FORM -->
                 <div class="glass-card-3d p-5 rounded-2xl space-y-4 border border-amber-500/40">
                     <h4 class="font-bold text-amber-300 text-xs flex items-center gap-2"><i class="fa-solid fa-calculator text-amber-400"></i> লাইভ ইএমআই (EMI) ও কিস্তি ক্যালকুলেটর</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
@@ -492,9 +490,9 @@
                             </div>
                             
                             <div class="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center space-y-3">
-                                <p class="text-xs text-slate-300">ফি পাঠানোর নাম্বার পেতে নিচের বাটনে ক্লিক করে সরাসরি হোয়াটসঅ্যাপে (~Ceramic gallery) মেসেজ পাঠান:</p>
+                                <p class="text-xs text-slate-300">ফি পাঠানোর নাম্বার পেতে নিচের বাটনে ক্লিক করে সরাসরি হোয়াটসঅ্যাপে মেসেজ পাঠান:</p>
                                 <button type="button" onclick="triggerWhatsAppWhisper()" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs px-6 py-3.5 rounded-xl shadow-lg hover:scale-105 transition flex items-center justify-center gap-2 mx-auto">
-                                    <i class="fa-brands fa-whatsapp text-base"></i> হোয়াটসঅ্যাপে (~Ceramic gallery) নাম্বার চান
+                                    <i class="fa-brands fa-whatsapp text-base"></i> হোয়াটসঅ্যাপে নাম্বার চান
                                 </button>
                                 <div id="timer-box" class="text-xs font-bold text-amber-300 hidden pt-2 bg-slate-950 p-3 rounded-xl border border-amber-500/40 space-y-1">
                                     <p>⏳ নাম্বার পাওয়ার জন্য ২ মিনিট অপেক্ষা করুন...</p>
@@ -712,11 +710,37 @@
             } catch(e) {}
         }
 
-        // --- AUTH & USER DATABASE ---
+        // --- AUTH & SHARED DATABASE SYNC (LocalStorage + Storage Event for multi-device/tab sync) ---
         let usersDB = JSON.parse(localStorage.getItem('microFinance_users_db')) || [];
+        let loansDB = JSON.parse(localStorage.getItem('microFinance_loans_db')) || [];
         let loggedInUser = JSON.parse(localStorage.getItem('microFinance_logged_user')) || null;
         let pendingRegistration = null;
         let generatedSecretCode = "";
+
+        // Listen for changes from other tabs/instances instantly
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'microFinance_users_db') {
+                usersDB = JSON.parse(e.newValue) || [];
+                renderAdminUsers();
+                if (loggedInUser) {
+                    const fresh = usersDB.find(u => u.phone === loggedInUser.phone);
+                    if (fresh) { loggedInUser = fresh; renderUserWallet(); }
+                }
+            }
+            if (e.key === 'microFinance_loans_db') {
+                loansDB = JSON.parse(e.newValue) || [];
+                renderAdminLoans();
+                renderUserLoans();
+            }
+            if (e.key === 'microFinance_notice') {
+                checkNoticeBoard();
+            }
+        });
+
+        function saveDatabases() {
+            localStorage.setItem('microFinance_users_db', JSON.stringify(usersDB));
+            localStorage.setItem('microFinance_loans_db', JSON.stringify(loansDB));
+        }
 
         function checkAuthSession() {
             const welcomeOverlay = document.getElementById('welcome-overlay');
@@ -813,12 +837,13 @@
                 }
 
                 usersDB.push(pendingRegistration);
-                localStorage.setItem('microFinance_users_db', JSON.stringify(usersDB));
+                saveDatabases();
                 loggedInUser = pendingRegistration;
                 localStorage.setItem('microFinance_logged_user', JSON.stringify(loggedInUser));
 
                 closeAuthModal();
                 checkAuthSession();
+                renderAdminUsers();
                 showToast("সফলভাবে কোড ভেরিফাই ও অ্যাকাউন্ট তৈরি হয়েছে!");
 
             } else {
@@ -893,9 +918,10 @@
 
             loggedInUser.balance -= amount;
             usersDB = usersDB.map(u => u.phone === loggedInUser.phone ? loggedInUser : u);
-            localStorage.setItem('microFinance_users_db', JSON.stringify(usersDB));
+            saveDatabases();
             localStorage.setItem('microFinance_logged_user', JSON.stringify(loggedInUser));
             renderUserWallet();
+            renderAdminUsers();
             closeCashOutModal();
 
             const trxId = 'TRX' + Math.floor(10000000 + Math.random() * 90000000);
@@ -932,7 +958,7 @@
             showToast("নোটিশ সফলভাবে আপডেট করা হয়েছে!");
         }
 
-        // --- 30 WINNERS POOL ROTATING EVERY 30 SECONDS ---
+        // --- LIVE WINNERS FEED ---
         const winnersPool30 = [
             { name: "আরিফুল ইসলাম", district: "ঢাকা", amount: "৳৫০,০০০" },
             { name: "সুমাইয়া আক্তার", district: "সিরাজগঞ্জ", amount: "৳১,০০,০০০" },
@@ -941,35 +967,12 @@
             { name: "ফারজানা ইয়াসমিন", district: "খুলনা", amount: "৳১,৫০,০০০" },
             { name: "মো: সজিব মিয়া", district: "চট্টগ্রাম", amount: "৳৬০,০০০" },
             { name: "তানভীর আহমেদ", district: "সিলেট", amount: "৳৮০,০০০" },
-            { name: "লিজা আক্তার", district: "রংপুর", amount: "৳৩০,০০০" },
-            { name: "কামরুল হাসান", district: "বরিশাল", amount: "৳৯০,০০০" },
-            { name: "মাসুদ রানা", district: "ময়মনসিংহ", amount: "৳১,২০,০০০" },
-            { name: "সাব্বির হোসেন", district: "পাবনা", amount: "৳৪৫,০০০" },
-            { name: "নূরে আলম", district: "গাজীপুর", amount: "৳২,০০,০০০" },
-            { name: "শরিফুল ইসলাম", district: "নারায়ণগঞ্জ", amount: "৳৬৫,০০০" },
-            { name: "আশিকুর রহমান", district: "টাঙ্গাইল", amount: "৳৫৫,০০০" },
-            { name: "মীম আক্তার", district: "কুমিল্লা", amount: "৳৩৫,০০০" },
-            { name: "ইমন হোসেন", district: "ফরিদপুর", amount: "৳৮৫,০০০" },
-            { name: "জুয়েল রানা", district: "যশোর", amount: "৳৯৫,০০০" },
-            { name: "আরিফ হোসাইন", district: "নওগাঁ", amount: "৳৭০,০০০" },
-            { name: "মুক্তা খাতুন", district: "সাতক্ষীরা", amount: "৳৫০,০০০" },
-            { name: "হাসান আলী", district: "দিনাজপুর", amount: "৳১,১০,০০০" },
-            { name: "জাকির হোসেন", district: "ব্রাহ্মণবাড়িয়া", amount: "৳৪০,০০০" },
-            { name: "রিফাত ইসলাম", district: "কক্সবাজার", amount: "৳১,৩০,০০০" },
-            { name: "সোহাগ মিয়া", district: "জামালপুর", amount: "৳৬০,০০০" },
-            { name: "বুলবুলি বেগম", district: "পটুয়াখালী", amount: "৳২৫,০০০" },
-            { name: "আল আমিন", district: "হবিগঞ্জ", amount: "৳৭৫,০০০" },
-            { name: "নাহিদা সুলতানা", district: "মানিকগঞ্জ", amount: "৳৯০,০০০" },
-            { name: "করিম শেখ", district: "গোপালগঞ্জ", amount: "৳৪৫,০০০" },
-            { name: "রতন কুমার", district: "নওগাঁ", amount: "৳৬০,০০০" },
-            { name: "পপি খাতুন", district: "নাটোর", amount: "৳৫০,০০০" },
-            { name: "জাহাঙ্গীর আলম", district: "পাবনা", amount: "৳১,০০,০০০" }
+            { name: "লিজা আক্তার", district: "রংপুর", amount: "৳৩০,০০০" }
         ];
 
         let winnerPointer = 0;
         function initLiveWinnersFeed() {
             const container = document.getElementById('live-winners-scroll');
-            
             function renderWinners() {
                 container.innerHTML = "";
                 for (let i = 0; i <= winnerPointer && i < winnersPool30.length; i++) {
@@ -990,11 +993,8 @@
                 }
                 container.scrollTop = container.scrollHeight;
                 winnerPointer++;
-                if (winnerPointer >= winnersPool30.length) {
-                    winnerPointer = 0;
-                }
+                if (winnerPointer >= winnersPool30.length) winnerPointer = 0;
             }
-
             renderWinners();
             setInterval(renderWinners, 30000);
         }
@@ -1003,11 +1003,9 @@
         function updateWidgetCalculator() {
             const amount = parseFloat(document.getElementById('calc-range-amount').value);
             const months = parseInt(document.getElementById('calc-range-duration').value);
-            
             document.getElementById('calc-range-val').innerText = amount.toLocaleString('bn-BD');
             const fee = amount * 0.05;
             document.getElementById('calc-fee-val').innerText = fee.toLocaleString('bn-BD');
-            
             const emi = Math.round(amount / months);
             document.getElementById('calc-monthly-emi').innerText = emi.toLocaleString('bn-BD');
         }
@@ -1063,8 +1061,6 @@
             }
         }
 
-        let loansDB = JSON.parse(localStorage.getItem('microFinance_loans_db')) || [];
-
         window.onload = function() {
             checkAuthSession();
             renderAdminLoans();
@@ -1082,7 +1078,6 @@
             document.getElementById('f_name').value = loggedInUser.name || "";
             document.getElementById('f_phone').value = loggedInUser.phone || "";
             document.getElementById('f_nid').value = loggedInUser.nid || "";
-
             document.getElementById('loan-apply-modal').classList.remove('hidden');
         }
         function closeLoanApplyModal() { document.getElementById('loan-apply-modal').classList.add('hidden'); }
@@ -1090,19 +1085,16 @@
         function triggerWhatsAppWhisper() {
             const timerBox = document.getElementById('timer-box');
             timerBox.classList.remove('hidden');
-            
             const messageText = "স্যার, আমি একটি লোন নিতে চাচ্ছি, দয়া করে পেমেন্ট করার নাম্বার দিয়ে আমাকে সাহায্য করুন।";
             window.open(`https://wa.me/?text=${encodeURIComponent(messageText)}`, '_blank');
             showToast("হোয়াটসঅ্যাপে মেসেজ পাঠানো হয়েছে। ২ মিনিট অপেক্ষা করুন...");
 
             let timeLeft = 120;
             const countdownEl = document.getElementById('countdown-display');
-            
             const timerInterval = setInterval(() => {
                 let minutes = Math.floor(timeLeft / 60);
                 let seconds = timeLeft % 60;
                 countdownEl.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
                     countdownEl.innerText = "সময় শেষ! নাম্বারটি হলো: 01324370775";
@@ -1137,7 +1129,7 @@
             };
 
             loansDB.push(newLoan);
-            localStorage.setItem('microFinance_loans_db', JSON.stringify(loansDB));
+            saveDatabases();
             renderAdminLoans();
             renderUserLoans();
             closeLoanApplyModal();
@@ -1188,14 +1180,11 @@
             const loan = loansDB.find(l => l.id === id);
             if (loan && !loan.status.includes("অনুমোদিত")) {
                 loan.status = "✅ লোন সফলভাবে অনুমোদিত!";
-                
                 const targetUser = usersDB.find(u => u.phone === loan.userPhone);
                 if (targetUser) {
                     targetUser.balance = (targetUser.balance || 0) + loan.amount;
-                    localStorage.setItem('microFinance_users_db', JSON.stringify(usersDB));
                 }
-
-                localStorage.setItem('microFinance_loans_db', JSON.stringify(loansDB));
+                saveDatabases();
                 renderAdminLoans();
                 renderUserLoans();
                 renderAdminUsers();
@@ -1207,7 +1196,7 @@
             const loan = loansDB.find(l => l.id === id);
             if (loan) {
                 loan.status = "❌ লোন বাতিল করা হয়েছে";
-                localStorage.setItem('microFinance_loans_db', JSON.stringify(loansDB));
+                saveDatabases();
                 renderAdminLoans();
                 renderUserLoans();
                 showToast("লোন আবেদন বাতিল করা হয়েছে!");
@@ -1216,12 +1205,10 @@
 
         function toggleBlockUser(phone) {
             usersDB = usersDB.map(u => {
-                if (u.phone === phone) {
-                    u.isBlocked = !u.isBlocked;
-                }
+                if (u.phone === phone) { u.isBlocked = !u.isBlocked; }
                 return u;
             });
-            localStorage.setItem('microFinance_users_db', JSON.stringify(usersDB));
+            saveDatabases();
             renderAdminUsers();
             showToast("ইউজার স্ট্যাটাস আপডেট করা হয়েছে!");
         }
